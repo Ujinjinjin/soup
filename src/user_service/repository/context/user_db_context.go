@@ -3,82 +3,54 @@ package context
 import (
 	"context"
 	"github.com/jackc/pgx/v4"
-	//"github.com/jmoiron/sqlx"
+	"github.com/ujinjinjin/user_service/converters"
 	"log"
 )
 
 type UserDbContext struct {
-
-}
-
-type DbTestTable struct {
-	id int
-	name string
-}
-
-func RowToDbTestTable(row pgx.Row) (DbTestTable, error){
-	var testTable DbTestTable
-	err := row.Scan(&testTable.id, &testTable.name)
-	if err != nil {
-		return testTable, err
-	}
-	return testTable, nil
+	connection *pgx.Conn
 }
 
 func NewUserDbContext() *UserDbContext {
-	return &UserDbContext{
+	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
+	var connection, err = pgx.Connect(context.Background(), "host=localhost user=local_user password=qwer1234 database=local_db")
+	if err != nil {
+		log.Printf("UserDbContext:NewUserDbContext:Error; %s", err)
+	}
 
+	return &UserDbContext{
+		connection: connection,
 	}
 }
 
 func (s *UserDbContext) Dispose() {
-
+	err := s.connection.Close(context.Background())
+	if err != nil {
+		log.Printf("UserDbContext:Dispose:Error; %s", err)
+	}
 }
 
 func (s *UserDbContext) TestSingle() (string, error) {
-	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	conn, err := pgx.Connect(context.Background(), "host=localhost user=local_user password=qwer1234 database=local_db")
+	testTable, err := converters.RowToTestTable(s.connection.QueryRow(context.Background(), "select id, name from test_table where id=1"))
 	if err != nil {
-		log.Printf("ERROR: %s", err)
-		return "", err
-	}
-	defer conn.Close(context.Background())
-
-	testTable, err := RowToDbTestTable(conn.QueryRow(context.Background(), "select id, name from test_table where id=1"))
-	if err != nil {
-		log.Printf("QueryRow failed: %v\n", err)
+		log.Printf("UserDbContext:TestSingle:Error; %v\n", err)
 	}
 
-	return testTable.name, nil
+	return testTable.Name, nil
 }
 
 func (s *UserDbContext) TestQuery() (string, error) {
-	//conn, err := pgx.Connect(context.Background(), os.Getenv("DATABASE_URL"))
-	conn, err := pgx.Connect(context.Background(), "host=localhost user=local_user password=qwer1234 database=local_db")
-	if err != nil {
-		log.Printf("ERROR: %s", err)
-		return "", err
-	}
-	defer conn.Close(context.Background())
-
-	testTable, err := conn.Query(context.Background(), "select id, name from test_table")
+	queryResult, err := s.connection.Query(context.Background(), "select id, name from test_table")
 	if err != nil {
 		log.Printf("QueryRow failed: %v\n", err)
 	}
 
-	var result []DbTestTable
-
-	for testTable.Next() {
-		var id int
-		var name string
-		testTable.Scan(&id, &name)
-		result = append(result, DbTestTable{
-			id:   id,
-			name: name,
-		})
+	testTable, err := converters.RowsToTestTableArray(queryResult)
+	if err != nil {
+		log.Printf("QueryRow failed: %v\n", err)
 	}
 
-	log.Printf("result: %v", result)
+	log.Printf("testTable: %v", testTable)
 
-	return "testTable.name", nil
+	return testTable[1].Name, nil
 }
