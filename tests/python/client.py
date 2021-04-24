@@ -1,20 +1,15 @@
-from user_service_pb2 import CreateUserRequest
-from user_service_pb2_grpc import *
+from protocol_buffers.user_service_pb2 import GetUserRequest, GetUserReply
+from protocol_buffers.user_service_pb2_grpc import *
 import grpc
 
 
 def run():
-    channel = grpc.insecure_channel('localhost:10000')
+    channel = grpc.insecure_channel('172.30.79.172:10000')
     stub = UserServiceStub(channel)
-    response = stub.CreateUser(
-        CreateUserRequest(
-            email="ujinjinjin@outlook.com",
-            first_name="Camille",
-            last_name="Galladjov",
-            middle_name="Amrullaevich"
-        )
+    response = stub.GetUser(
+        GetUserRequest(user_id=1)
     )
-    print(f"Reply received. User Id: {response.id}")
+    print(f"Reply received. {response}")
 
 
 if __name__ == '__main__':
